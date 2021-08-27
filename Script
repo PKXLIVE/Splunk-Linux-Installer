@@ -1,0 +1,186 @@
+#!/bin/bash
+
+#######################################
+#Record date of creation for log file.#
+#######################################
+
+d=$(date +"%Y-%m-%d_%T")
+echo "$d"
+
+#################################
+#Forward all output to log file.#
+#################################
+
+log_file="SplunkInstall_log_$d.txt"
+
+touch "./SplunkInstall_log_$d.txt"
+
+exec &> >(tee -a "/var/log/$log_file")
+
+###################################
+#Check if running process as root.#
+###################################
+
+if [[ $EUID -ne 0 ]]; then
+
+echo "*******************************"
+echo "This script must be run as root"
+echo "*******************************"
+
+exit 1
+
+fi
+
+set -e
+
+####################################################################
+#Insall the correct package after determining the Operating System.#
+####################################################################
+
+RPM_PACKAGE_NAME="splunkInstaller.rpm"
+DEB_PACKAGE_NAME="splunkInstaller.deb"
+
+ if cat /etc/*release | grep ^NAME | grep -i CentOS; then
+
+    echo "==============================================="
+    echo "Installing packages $RPM_PACKAGE_NAME on CentOS"
+    echo "==============================================="
+
+    cat /etc/*release | grep -i ^PRETTY_NAME
+
+    rpm -i $RPM_PACKAGE_NAME
+
+ elif cat /etc/*release | grep ^NAME | grep -i Red; then
+
+    echo "==============================================="
+    echo "Installing packages $RPM_PACKAGE_NAME on RedHat"
+    echo "==============================================="
+
+
+    cat /etc/*release | grep -i ^PRETTY_NAME
+
+    rpm -i $RPM_PACKAGE_NAME
+
+ elif cat /etc/*release | grep ^NAME | grep -i SuSe; then
+
+    echo "================================================"
+    echo "Installing packages $RPM_PACKAGE_NAME on SUSE"
+    echo "================================================"
+
+    cat /etc/*release | grep -i ^PRETTY_NAME
+
+    rpm -i $RPM_PACKAGE_NAME
+
+ elif cat /etc/*release | grep ^NAME | grep -i Ubuntu; then
+
+    echo "==============================================="
+    echo "Installing packages $DEB_PACKAGE_NAME on Ubuntu"
+    echo "==============================================="
+
+    cat /etc/*release | grep -i ^PRETTY_NAME
+
+    dpkg --install $DEB_PACKAGE_NAME
+
+ elif cat /etc/*release | grep ^NAME | grep -i Debian ; then
+
+    echo "==============================================="
+    echo "Installing packages $DEB_PACKAGE_NAME on Debian"
+    echo "==============================================="
+
+    cat /etc/*release | grep -i ^PRETTY_NAME
+
+    dpkg --install $DEB_PACKAGE_NAME
+
+  else
+
+   echo "**************************************************************************************************************************************************"
+   echo "Correct Operating System NOT DETECTED, could not install package splunkInstaller. Please check to confirm correct package manager and retry again."
+   echo "**************************************************************************************************************************************************"
+
+    exit 1;
+
+ fi
+
+##############################################
+#Copy Config files to local system directory.#
+##############################################
+
+cp user-seed.conf /opt/splunkforwarder/etc/system/local/
+cp deploymentclient.conf /opt/splunkforwarder/etc/system/local/
+
+###################################################
+#Grant the new Splunk user ownership of directory.#
+###################################################
+
+chown -R splunk:splunk /opt/splunkforwarder/
+
+###############################################################################
+#Add the newly created Splunk user to the wheel group to enable read for logs.#
+###############################################################################
+
+echo "==============================="
+echo 'Granting new Splunk user access'
+echo "==============================="
+
+usermod -aG wheel splunk
+
+############################
+#Activate and start splunk.#
+############################
+
+sudo -u splunk sh -c "/opt/splunkforwarder/bin/splunk start --accept-license --answer-yes --no-prompt"
+
+sleep 10
+
+echo "=================================="
+echo 'Accepting Splunk License Agreement'
+echo "=================================="
+
+sudo -u splunk sh -c "/opt/splunkforwarder/bin/splunk stop"
+
+#################################
+#Enable splunk to start at boot.#
+#################################
+
+echo "==================================="
+echo "Configuring Splunk to start at boot"
+echo "==================================="
+
+/opt/splunkforwarder/bin/splunk enable boot-start -systemd-managed 1
+systemctl daemon-reload
+
+sleep 10
+
+echo "============"
+echo 'Boot enabled'
+echo "============"
+
+systemctl start SplunkForwarder.service
+
+echo "======================="
+echo 'Starting Splunk Service'
+echo "======================="
+
+
+sleep 10
+
+##################################
+#Check the status of the Service.#
+##################################
+
+STATUS="$(systemctl is-active SplunkForwarder.service)"
+
+if [ $STATUS == "active" ];
+
+then
+
+        echo "==========================================="
+        echo "Splunk forwarder is configured and running."
+        echo "==========================================="
+
+else
+        echo "**********************************************************************************************************"
+        echo "Splunk forwarder configuration failed and is not running. Please check the install log located in /var/log"
+        echo "**********************************************************************************************************"
+
+fi
