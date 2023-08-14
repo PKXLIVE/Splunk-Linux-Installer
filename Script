@@ -242,8 +242,10 @@ sleep 5
 /opt/splunkforwarder/bin/splunk enable boot-start -systemd-managed 1
 
 sleep 5
-
-sed -i "s/splunk@ad.uc.edu:domain\ users@ad.uc.edu/\'splunk@ad.uc.edu:domain\ users@ad.uc.edu\'/g" /etc/systemd/system/SplunkForwarder.service
+##################################################################################################################################
+# Please replace "yourdomain" with your domain if you have a mix enviroment that has some linux machines tied to Active Directory#
+##################################################################################################################################
+sed -i "s/splunk@yourdomain:domain\ users@yourdomain/\'splunk@yourdomain:domain\ users@yourdomain\'/g" /etc/systemd/system/SplunkForwarder.service
 
 sleep 5
 
