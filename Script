@@ -1,5 +1,16 @@
 #!/bin/bash
 
+# Ansi color code variables
+red="\e[0;91m"
+blue="\e[0;94m"
+green="\e[0;92m"
+white="\e[0;97m"
+cyan="\e[0;46m"
+yellow="\e[0;33m"
+bold="\e[1m"
+uline="\e[4m"
+reset="\e[0m"
+
 #######################################
 #Record date of creation for log file.#
 #######################################
@@ -23,9 +34,11 @@ exec &> >(tee -a "/var/log/$log_file")
 
 if [[ $EUID -ne 0 ]]; then
 
-echo "*******************************"
-echo "This script must be run as root"
-echo "*******************************"
+	echo "**********************************"
+	echo -e "${red}${bold}This Installer must be run as root!${reset}"
+	echo "**********************************"
+
+	echo ""
 
 exit 1
 
@@ -33,73 +46,111 @@ fi
 
 set -e
 
-####################################################################
-#Insall the correct package after determining the Operating System.#
-####################################################################
+if [[ -d "/opt/splunkforwarder" ]]
+
+then
+        echo -e "${blue}${bold}==========================================${reset}"
+        echo -e "${red}${bold}Detected older version of Splunk Installed${reset}"
+        echo -e "${blue}${bold}==========================================${reset}"
+	echo ""
+	echo ""
+        echo -e "${blue}${bold}===============================================================${reset}"
+        echo -e "${white}${bold}Please wait while attempting to remove the older Splunk install${reset}"
+        echo -e "${blue}${bold}===============================================================${reset}"
+	echo ""
+	echo ""
+        echo -e "${cyan}${bold}************************************${reset}"
+        echo -e "${yellow}Splunk${reset}${green}${bold}>${reset}${white}${bold}Because ninjas are too busy${reset}"
+        echo -e "${cyan}${bold}************************************${reset}"
+	echo ""
+	echo ""
+
+./resetsplunk.sh
+
+sleep 5
+
+else
+        echo -e "${blue}${bold}=====================================${reset}"
+        echo -e "${white}${bold}Installation is good to move forward${reset}"
+        echo -e "${blue}${bold}=====================================${reset}"
+	echo ""
+	echo ""
+	echo -e "${cyan}${bold}************************************${reset}"
+        echo -e "${yellow}Splunk${reset}${green}${bold} > ${reset}${white}${bold}Because ninjas are too busy${reset}"
+        echo -e "${cyan}${bold}************************************${reset}"
+
+
+fi
+
+################################################
+# Function to add user to the appropriate group#
+################################################
+
+add_user_to_group() {
+    if [ "$1" == "yum" ] || [ "$1" == "dnf" ]; then
+        # Add Splunk user to the wheel group (RHEL/CentOS distrobutions)
+        usermod -aG wheel splunk
+
+elif [ "$1" == "apt" ]; then
+        # Add Splunk user to the sudo group (Debian/Ubuntu base distrobutions)
+        usermod -aG sudo splunk
+    fi
+}
+
+#####################################################################
+#Install the correct package after determining the Operating System.#
+#####################################################################
+
+if command -v dnf &> /dev/null; then
+    package_manager="dnf"
+elif command -v yum &> /dev/null; then
+    package_manager="yum"
+elif command -v apt-get &> /dev/null; then
+    package_manager="apt"
+else
+    echo -e "${red}${bold}Unsupported package manager or distribution.${reset}"
+    exit 1
+fi
+
+    echo ""
+    echo -e "${blue}${bold}=========================================================${reset}"
+    echo -e "${white}${bold}Detecting Operating System to install the correct package${reset}"
+    echo -e "${blue}${bold}=========================================================${reset}"
+    echo ""
+    echo ""
+    echo -e "${cyan}${bold}**********************************************${reset}"
+    echo -e "${yellow}Splunk${reset}${green}${bold} > ${reset}${white}${bold}More flexible than an Olympic gymnast${reset}"
+    echo -e "${cyan}${bold}**********************************************${reset}"
+    echo ""
+    echo ""
+
+#####################################################################
 
 RPM_PACKAGE_NAME="splunkInstaller.rpm"
 DEB_PACKAGE_NAME="splunkInstaller.deb"
 
- if cat /etc/*release | grep ^NAME | grep -i CentOS; then
+#######################################
+# Determine distribution's pretty name#
+#######################################
 
-    echo "==============================================="
-    echo "Installing packages $RPM_PACKAGE_NAME on CentOS"
-    echo "==============================================="
+pretty_name=$(cat /etc/*release | grep -i ^PRETTY_NAME)
 
-    cat /etc/*release | grep -i ^PRETTY_NAME
+####################################################################
 
-    rpm -i $RPM_PACKAGE_NAME
-
- elif cat /etc/*release | grep ^NAME | grep -i Red; then
-
-    echo "==============================================="
-    echo "Installing packages $RPM_PACKAGE_NAME on RedHat"
-    echo "==============================================="
-
-
-    cat /etc/*release | grep -i ^PRETTY_NAME
-
-    rpm -i $RPM_PACKAGE_NAME
-
- elif cat /etc/*release | grep ^NAME | grep -i SuSe; then
-
-    echo "================================================"
-    echo "Installing packages $RPM_PACKAGE_NAME on SUSE"
-    echo "================================================"
-
-    cat /etc/*release | grep -i ^PRETTY_NAME
-
-    rpm -i $RPM_PACKAGE_NAME
-
- elif cat /etc/*release | grep ^NAME | grep -i Ubuntu; then
-
-    echo "==============================================="
-    echo "Installing packages $DEB_PACKAGE_NAME on Ubuntu"
-    echo "==============================================="
-
-    cat /etc/*release | grep -i ^PRETTY_NAME
-
-    dpkg --install $DEB_PACKAGE_NAME
-
- elif cat /etc/*release | grep ^NAME | grep -i Debian ; then
-
-    echo "==============================================="
-    echo "Installing packages $DEB_PACKAGE_NAME on Debian"
-    echo "==============================================="
-
-    cat /etc/*release | grep -i ^PRETTY_NAME
-
-    dpkg --install $DEB_PACKAGE_NAME
-
-  else
-
-   echo "**************************************************************************************************************************************************"
-   echo "Correct Operating System NOT DETECTED, could not install package splunkInstaller. Please check to confirm correct package manager and retry again."
-   echo "**************************************************************************************************************************************************"
-
-    exit 1;
-
- fi
+case $package_manager in
+    dnf|yum)
+        echo -e "${blue}${bold}Installing packages $RPM_PACKAGE_NAME on $pretty_name${reset}"
+        rpm -i $RPM_PACKAGE_NAME
+	sleep 10
+	add_user_to_group "wheel"
+        ;;
+    apt)
+        echo -e "${blue}${bold}Installing packages $DEB_PACKAGE_NAME on $pretty_name${reset}"
+        dpkg --install $DEB_PACKAGE_NAME
+	sleep 10
+	add_user_to_group "sudo"
+        ;;
+esac
 
 ##############################################
 #Copy Config files to local system directory.#
@@ -118,51 +169,109 @@ chown -R splunk:splunk /opt/splunkforwarder/
 #Add the newly created Splunk user to the wheel group to enable read for logs.#
 ###############################################################################
 
-echo "==============================="
-echo 'Granting new Splunk user access'
-echo "==============================="
-
-usermod -aG wheel splunk
+	echo ""
+	echo ""
+	echo -e "${blue}${bold}===============================${reset}"
+	echo -e "${white}${bold}Granting new Splunk user access${reset}"
+	echo -e "${blue}${bold}===============================${reset}"
+	echo ""
+	echo ""
+	echo -e "${cyan}${bold}******************************************${reset}"
+	echo -e "${yellow}Splunk${reset}${green}${bold} > ${reset}${white}${bold}The mars rover of the IT landfill${reset}"
+	echo -e "${cyan}${bold}******************************************${reset}"
 
 ############################
 #Activate and start splunk.#
 ############################
 
-sudo -u splunk sh -c "/opt/splunkforwarder/bin/splunk start --accept-license --answer-yes --no-prompt"
+/opt/splunkforwarder/bin/splunk start --accept-license --answer-yes --no-prompt
 
-sleep 10
+##############################
+#Check if setacl is installed#
+##############################
 
-echo "=================================="
-echo 'Accepting Splunk License Agreement'
-echo "=================================="
+if ! command -v setfacl &> /dev/null; then
+    echo "The 'setfacl' command is not available. Please install it to proceed."
+    exit 1
+fi
 
-sudo -u splunk sh -c "/opt/splunkforwarder/bin/splunk stop"
+####################################################################
+#Creating ACLs for Log Rotation Permission to continue to read logs#
+####################################################################
+
+setfacl -R -m u:splunk:r-x /var/log
+
+touch "/etc/logrotate.d/Splunk_ACLs"
+
+cat <<EOF >> "/etc/logrotate.d/Splunk_ACLs"
+
+{
+    postrotate
+
+        /usr/bin/setfacl -R -m u:splunk:r-x /var/log
+
+    endscript
+}
+
+EOF
+
+#chown -R splunk:splunk /opt/splunkforwarder/
+
+sleep 5
+
+	echo -e "${blue}${bold}==================================${reset}"
+	echo -e "${white}${bold}Accepting Splunk License Agreement${reset}"
+	echo -e "${blue}${bold}==================================${reset}"
+	echo ""
+	echo ""
+
+#sudo -u splunk /opt/splunkforwarder/bin/splunk stop
+
+/opt/splunkforwarder/bin/splunk stop
 
 #################################
 #Enable splunk to start at boot.#
 #################################
 
-echo "==================================="
-echo "Configuring Splunk to start at boot"
-echo "==================================="
+	echo -e "${blue}${bold}===================================${reset}"
+	echo -e "${white}${bold}Configuring Splunk to start at boot${reset}"
+	echo -e "${blue}${bold}===================================${reset}"
+	echo ""
+	echo ""
 
 /opt/splunkforwarder/bin/splunk enable boot-start -systemd-managed 1
+
+sleep 5
+
+sed -i "s/splunk@ad.uc.edu:domain\ users@ad.uc.edu/\'splunk@ad.uc.edu:domain\ users@ad.uc.edu\'/g" /etc/systemd/system/SplunkForwarder.service
+
+sleep 5
+
 systemctl daemon-reload
 
 sleep 10
 
-echo "============"
-echo 'Boot enabled'
-echo "============"
+chown -R splunk:splunk /opt/splunkforwarder/
 
+	echo -e "${blue}${bold}============${reset}"
+	echo -e "${white}${bold}Boot enabled${reset}"
+	echo -e "${blue}${bold}============${reset}"
+	echo ""
+	echo ""
+
+#sudo -u splunk /opt/splunkforwarder/bin/splunk start
 systemctl start SplunkForwarder.service
 
-echo "======================="
-echo 'Starting Splunk Service'
-echo "======================="
 
+	echo -e "${blue}${bold}=======================${reset}"
+	echo -e "${white}${bold}Starting Splunk Service${reset}"
+	echo -e "${blue}${bold}=======================${reset}"
+	echo ""
+	echo ""
 
 sleep 10
+
+chown -R splunk:splunk /opt/splunkforwarder/
 
 ##################################
 #Check the status of the Service.#
@@ -174,13 +283,34 @@ if [ $STATUS == "active" ];
 
 then
 
-        echo "==========================================="
-        echo "Splunk forwarder is configured and running."
-        echo "==========================================="
+        echo -e "${blue}${bold}===========================================${reset}"
+        echo -e "${white}${bold}Splunk forwarder is configured and running.${reset}"
+        echo -e "${blue}${bold}===========================================${reset}"
+	echo ""
+	echo ""
+	echo -e "${cyan}${bold}*******************************************${reset}"
+        echo -e "${yellow}Splunk${reset}${green}${bold} > ${reset}${white}${bold}Finding your faults, just like mom${reset}"
+        echo -e "${cyan}${bold}*******************************************${reset}"
+	echo ""
+	echo ""
+	echo -e "${yellow}${bold}###############################################################${reset}"
+	echo -e "${yellow}${bold}#${reset}   ${green}${bold}Successfully Installed the Universal Splunk forwarder!!!${reset}  ${yellow}${bold}#${reset}"
+	echo -e "${yellow}${bold}#${reset}                  ${green}${bold} Go Splunking!!!${reset}                           ${yellow}${bold}#${reset}"
+	echo -e "${yellow}${bold}###############################################################${reset}"
+
+
+
+
+#####################################
+#Cleanup any remaining Splunk files.#
+#####################################
+
+rm -rf ./linuxSplunkinstaller
 
 else
-        echo "**********************************************************************************************************"
-        echo "Splunk forwarder configuration failed and is not running. Please check the install log located in /var/log"
-        echo "**********************************************************************************************************"
+        echo -e "${red}${bold}**********************************************************************************************************${reset}"
+        echo  "Splunk forwarder configuration failed and is not running. Please check the install log located in /var/log"
+        echo -e "${red}${bold}**********************************************************************************************************${reset}"
+
 
 fi
