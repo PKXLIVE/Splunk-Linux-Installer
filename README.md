@@ -1,3 +1,6 @@
+Please ensure to check if "acl" is installed as a requirement to ensure this works.
+Also this script reuqires root privilege to run.
+
 # Splunk-Linux-Installer
 #To Install Splunk forwarders on the correct linux os and verify the service is running
 #To run this as a silent and non user interactive install. 
