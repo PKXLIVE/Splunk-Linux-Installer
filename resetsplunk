@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# Check if running process as root
+if [[ $EUID -ne 0 ]]; then
+    echo "**********************************"
+    echo -e "This script must be run as root!"
+    echo "**********************************"
+    exit 1
+fi
+
+# Stop Splunk forwarder
+ /opt/splunkforwarder/bin/splunk stop
+sleep 5
+
+# Disable boot-start for Splunk forwarder
+/opt/splunkforwarder/bin/splunk disable boot-start
+sleep 5
+
+# Uninstall Splunk forwarder based on the package manager
+if command -v dnf &> /dev/null || command -v yum &> /dev/null; then
+     yum remove splunkforwarder -y
+elif command -v apt-get &> /dev/null; then
+     apt-get remove splunkforwarder -y
+fi
+
+# Remove Splunk forwarder installation directory
+rm -rf /opt/splunkforwarder
